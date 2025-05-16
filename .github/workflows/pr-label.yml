@@ -24,11 +24,11 @@ jobs:
           labels=$(echo "$pr" | jq -r '.labels[].name')
 
           if [[ "$pr_number" != "${{ github.event.pull_request.number }}" ]]; then
-            echo "PR number and orig pr number do not match."
             # Ensure the whole label is read, even if space-separated.
             echo "$labels" | while IFS= read -r label; do
               if [[ "$label" == "${{ github.event.label.name }}" ]]; then
-                echo "Removing label $label from PR number $pr_number"
+                echo "Removing label $label from PR number $pr_number..."
+                sleep .25 # Give logs time to populate.
                 gh pr edit "$pr_number" --remove-label "$label"
                 if [ $? -ne 0 ]; then
                   echo "Failed to remove label $label from PR $pr_number" >&2
