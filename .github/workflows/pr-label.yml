@@ -11,7 +11,29 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: Run a one-line script
+    - name: Remove label from all other open PRs
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        echo "Hello, world!"
-        echo "${{ github.event.pull_request.head.ref }}"
+        echo "Running pr-label for pr ${{ github.event.pull_request.number }} (branch ${{ github.event.pull_request.head.ref }}) and label ${{ github.event.label.name }}"...
+        gh pr list --state open --json number,labels -q '.[] | {number, labels}' > prs.json
+  
+        cat prs.json | jq -c '.' | while read -r pr; do
+          pr_number=$(echo "$pr" | jq '.number')
+          labels=$(echo "$pr" | jq -r '.labels[].name')
+
+          if [[ "$pr_number" != "${{ github.event.pull_request.number }}" ]]; then
+            echo "PR number and orig pr number do not match."
+            # Ensure the whole label is read, even if space-separated.
+            echo "$labels" | while IFS= read -r label; do
+              if [[ "$label" == "${{ github.event.label.name }}" ]]; then
+                echo "Removing label $label from PR number $pr_number"
+                gh pr edit "$pr_number" --remove-label "$label"
+                if [ $? -ne 0 ]; then
+                  echo "Failed to remove label $label from PR $pr_number" >&2
+                  exit 1
+                fi
+              fi
+            done
+          fi
+        done
